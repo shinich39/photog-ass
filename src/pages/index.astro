@@ -1,0 +1,611 @@
+---
+
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <title>photog-ass</title>
+    <meta name="description" content="This page is support you are photography." />
+    <meta name="keywords" content="Productive, Photography, Groupping, Tagging, photog-ass" />
+    <meta name="author" content="Icheol Shin" />
+  </head>
+  <body>
+    <h1>photog-ass</h1>
+
+    <p>
+      This page is support you are photography.
+    </p>
+
+    <p>
+      I hope this page helps you become more productive.
+    </p>
+
+    <p>
+      <a href="https://github.com/shinich39">Github</a> |
+      <a href="mailto:shinich39@gmail.com">shinich39@gmail.com</a>
+    </p>
+
+
+    <br />
+    <br />
+
+
+    <p>1. Take a picture of the "number" below with your camera.</p>
+
+    <br />
+
+    <p id="sync-now" style="font-size: 32px; line-height: 1.6; word-break: break-all;"></p>
+
+    <br />
+
+    <p>2. Take pictures you want to group together.</p>
+    
+    <p>3. Enter tags for the pictures and click the Set button.</p>
+
+    <p>4. Repeat 2 to 3.</p>
+
+    <form id="take-form">
+      <input id="take-tags" name="tags" type="text" placeholder="tag1, tag2, tag3, ...">
+      <button type="submit">Set</button>
+    </form>
+
+    <br />
+
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Tags</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="take-body"></tbody>
+    </table>
+
+
+    <br />
+    <br />
+
+
+    <p>
+      5. When you ready to import image files from your camera to your desktop, 
+      Follow the next section.
+    </p>
+
+    <p>
+      (Optional) You can load current session later. 
+      Therefore, it is safe to close this page.
+    </p>
+
+    
+    <br />
+    <br />
+
+
+    <p>6. Load an image file with "number" on it. </p>
+
+    <input id="sync-file-input" type="file" accept="image/*">
+
+    <p id="sync-file-result">
+      undefined
+    </p>
+
+
+    <br />
+    <br />
+
+
+    <p>7. Enter "number" of the first image on input.</p>
+
+    <input id="sync-data-input" type="text" placeholder="number">
+
+    <p id="sync-data-result">
+      undefined
+    </p>
+
+
+    <br>
+    <br>
+
+
+    <p>
+      8. Edit filename template.
+    </p>
+
+    <p>
+      e.g., If tags is "Party, Bob, John, Mike"<br />
+      tags[0]/tags[1]_tags[2]_tags[3] =&gt; Party/Bob_John_Mike.&lt;extension&gt;
+    </p>
+
+    <div>
+      <input
+        id="template-input"
+        style="width: 256px"
+        type="text"
+        placeholder="Template here..."
+        />
+    </div>
+
+    <div id="template-result">
+      undefined
+    </div>
+
+
+    <br />
+    <br />
+
+
+    <p>9. Load image files.</p>
+
+    <input id="take-files-input" type="file" accept="image/*" multiple>
+
+    <br />
+    <br />
+
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Filename</th>
+          <th>New Filename</th>
+          <th>Tags</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="take-files-body"></tbody>
+    </table>
+
+
+    <br />
+
+
+    <div>
+      <button id="download-button">Download</button>
+      <span id="progress"></span>
+    </div>
+
+
+    <br />
+    <br />
+    
+
+    <p>
+      10. Clear current session for next session.
+    </p>
+
+    <p>
+      <button id="clear-state-button" type="button">Clear current session</button>
+    </p>
+
+
+    <br />
+    <br />
+    
+    
+  </body>
+</html>
+
+<style is:global>
+  body {
+    font-family: monospace;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  th {
+    text-align: left;
+  }
+
+  td, th {
+    padding: 4px 8px;
+  }
+</style>
+
+<script>
+  import * as ExifReader from "exifreader";
+  import JSZip from "jszip";
+  import dayjs from "dayjs";
+  import utc from "dayjs/plugin/utc.js";
+  import timezone from "dayjs/plugin/timezone.js";
+  import duration from "dayjs/plugin/duration.js";
+  import relativeTime from "dayjs/plugin/relativeTime.js";
+  import customParseFormat from "dayjs/plugin/customParseFormat.js";
+
+  dayjs.extend(duration);
+  dayjs.extend(relativeTime);
+  dayjs.extend(utc);
+  dayjs.extend(timezone);
+  dayjs.tz.setDefault(dayjs.tz.guess());
+  dayjs.extend(customParseFormat);
+
+  interface ISession {
+    startedAt: number,
+    syncedAt: number|null,
+    createdAt: number|null,
+    offset: number|null,
+    takes: ITake[],
+  }
+
+  interface ITake {
+    createdAt: number,
+    tags: string[],
+  }
+
+  interface IFile {
+    originalCreatedAt: number,
+    createdAt: number,
+    filename: string,
+    newFilename: string,
+    file: File,
+    tags: string[],
+  }
+
+  ;(() => {
+    const clearStateButton = document.getElementById("clear-state-button") as HTMLButtonElement;
+    const syncNow = document.getElementById("sync-now") as HTMLButtonElement;
+    const takeForm = document.getElementById("take-form") as HTMLFormElement;
+    const takeTags = document.getElementById("take-tags") as HTMLInputElement;
+    const takeBody = document.getElementById("take-body") as HTMLElement;
+    const syncFileInput = document.getElementById("sync-file-input") as HTMLInputElement;
+    const syncFileResult = document.getElementById("sync-file-result") as HTMLParagraphElement;
+    const syncDataInput = document.getElementById("sync-data-input") as HTMLInputElement;
+    const syncDataResult = document.getElementById("sync-data-result") as HTMLParagraphElement;
+    const takeFilesInput = document.getElementById("take-files-input") as HTMLInputElement;
+    const takeFilesBody = document.getElementById("take-files-body") as HTMLElement;
+    const templateInput = document.getElementById("template-input") as HTMLInputElement;
+    const templateResult = document.getElementById("template-result") as HTMLDivElement;
+    const downloadButton = document.getElementById("download-button") as HTMLButtonElement;
+    const progress = document.getElementById("progress") as HTMLSpanElement;
+
+    let syncTimer: any;
+    let importedFiles: IFile[] = [];
+
+    const session: ISession = {
+      startedAt: Date.now(),
+      syncedAt: null,
+      createdAt: null,
+      offset: null,
+      takes: [],
+    }
+
+    const getCreatedAtFromFile = async (file: File) => {
+      const tags = await ExifReader.load(file);
+
+      const dateObject = tags["DateTimeOriginal"] 
+        || tags["DateTimeDigitized"] 
+        || tags["DateTime"];
+
+      if (!dateObject?.description) {
+        throw new Error("No exif in file.");
+      } else if (dayjs(dateObject.description, "YYYY:MM:DD HH:mm:ss", true).isValid()) {
+        return dayjs(dateObject.description, "YYYY:MM:DD HH:mm:ss").valueOf();
+      } else if (dayjs(dateObject.description).isValid()) {
+        return dayjs(dateObject.description).valueOf();
+      }
+
+      throw new Error("File is not supported.");
+    }
+
+    const startSyncTimer = () => {
+      stopSyncTimer();
+
+      syncTimer = setInterval(() => {
+        session.startedAt = Date.now();
+        syncNow.innerHTML = `${session.startedAt}`;
+      }, 256);
+    }
+
+    const stopSyncTimer = () => {
+      if (syncTimer) {
+        clearInterval(syncTimer);
+        syncTimer = null;
+      }
+    }
+
+    const createFilename = (
+      template: string,
+      tags: string[],
+      ext: string
+    ) => {
+      const newFilename = template.replace(/tags\[([0-9]+)\]/g, (_, str) => {
+        const n = parseInt(str);
+        if (isNaN(n) || !tags[n]) {
+          return "undefined";
+        } else {
+          return tags[n];
+        }
+      });
+
+      return newFilename + ext;
+    }
+
+    const saveSession = () => {
+      localStorage.setItem("sess", JSON.stringify(session));
+    }
+
+    const getPrevSession = () => {
+      const data = localStorage.getItem("sess");
+      if (!data) {
+        throw new Error(`Previous session not found`);
+      }
+
+      const prevSession = JSON.parse(data) as ISession;
+
+      return prevSession;
+    }
+
+    const clearSession = () => {
+      if (!confirm("Are you sure delete current session?")) {
+        return;
+      }
+
+      localStorage.clear();
+      window.location.reload();
+    }
+
+    const importSession = (prevSession: ISession) => {
+      for (const [k, v] of Object.entries(prevSession)) {
+        // @ts-ignore
+        session[k] = v;
+      }
+      
+      renderAll();
+    }
+
+    const onTakeFormSubmit = (e: Event) => {
+      e.preventDefault();
+
+      const takes = session.takes;
+      const formData = new FormData(takeForm);
+      const tags = (formData.get("tags")?.toString() || "")
+        .split(",")
+        .map((str) => str.trim()).filter(Boolean);
+
+      if (tags.length < 1) {
+        return;
+      }
+
+      takes.push({
+        createdAt: Date.now(),
+        tags,
+      });
+
+      saveSession();
+      renderAll();
+
+      takeTags.value = "";
+    }
+
+    const onSyncFileChange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0] as File;
+      if (!file) {
+        session.createdAt = null;
+      } else {
+        try {
+          const createdAt = await getCreatedAtFromFile(file);
+          session.createdAt = createdAt;
+        } catch(err) {
+          console.error(err);
+          session.createdAt = null;
+        }
+      }
+
+      saveSession();
+      renderAll();
+    }
+
+    const onSyncDataChange = async (e: Event) => {
+      const str = (e.target as HTMLInputElement).value;
+
+      const match = str.match(/^[0-9]+$/);
+      if (!match) {
+        session.syncedAt = null;
+      } else {
+        session.syncedAt = parseInt(match[0]);
+      }
+
+      const syncedAt = session.syncedAt; // client
+      const createdAt = session.createdAt; // camera
+
+      if (syncedAt === null || createdAt === null) {
+        session.offset = null;
+      } else {
+        session.offset = syncedAt - createdAt;
+      }
+
+      saveSession();
+      renderAll();
+    }
+
+    const onTemplateChange = async (e: Event) => {
+      const str = templateInput.value;
+      const newFilename = createFilename(str, ["Party", "Bob", "John", "Mike"], ".jpg");
+      templateResult.innerHTML = newFilename;
+    }
+
+    const onImageFilesChange = async (e: Event) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []) as File[];
+
+      const offset = session.offset;
+      if (offset === null) {
+        alert("Offset not found.");
+        return;
+      }
+
+      importedFiles = await importFiles(files, offset);
+
+      renderTakeFiles();
+    }
+
+    const onDownloadClick = async (e: Event) => {
+      const zip = new JSZip();
+
+      for (const f of importedFiles) {
+        zip.file(f.newFilename, f.file, { base64: true });
+      }
+
+      const result = await zip.generateAsync({ type: 'blob' }, 
+        (metadata) => {
+          progress.innerHTML = metadata.percent + "%";
+        }
+      );
+
+      const url = URL.createObjectURL(result);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "photog-ass-result.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const renderAll = () => {
+      renderTakes();
+      renderSyncFile();
+      renderSyncData();
+    }
+
+    const renderTakes = () => {
+      const takes = session.takes;
+
+      takeBody.innerHTML = "";
+      
+      for (let i = 0; i < takes.length; i++) {
+        const t = takes[i];
+        const row = document.createElement("tr");
+        const c1 = document.createElement("td");
+        const c2 = document.createElement("td");
+        const c3 = document.createElement("td");
+
+        c1.innerHTML = "" + (i + 1);
+        c2.innerHTML = t.tags.join(", ");
+        c3.innerHTML = dayjs(t.createdAt).tz().format("YYYY-MM-DD HH:mm:ss");
+
+        row.appendChild(c1);
+        row.appendChild(c2);
+        row.appendChild(c3);
+        takeBody.appendChild(row);
+      }
+    }
+    
+    const renderSyncFile = () => {
+      const createdAt = session.createdAt;
+
+      if (createdAt === null) {
+        syncFileResult.innerHTML = "undefined";
+      } else {
+        syncFileResult.innerHTML = dayjs(createdAt).tz().format("YYYY-MM-DD HH:mm:ss");
+      }
+    }
+
+    const renderSyncData = () => {
+      const syncedAt = session.syncedAt;
+      const createdAt = session.createdAt;
+      const offset = session.offset;
+
+      if (syncedAt === null || createdAt === null || offset === null) {
+        syncDataInput.value = "";
+        syncDataResult.innerHTML = "undefined";
+      } else {
+        syncDataInput.value = "" + syncedAt;
+        syncDataResult.innerHTML = dayjs(syncedAt).tz().format("YYYY-MM-DD HH:mm:ss") 
+          + "<br />"
+          + dayjs.duration(offset).humanize(true);
+      }
+    }
+
+    const renderTakeFiles = async () => {
+      takeFilesBody.innerHTML = "";
+
+      for (let i = 0; i < importedFiles.length; i++) {
+        const f = importedFiles[i];
+
+        const row = document.createElement("tr");
+        const c1 = document.createElement("td");
+        const c2 = document.createElement("td");
+        const c3 = document.createElement("td");
+        const c4 = document.createElement("td");
+        const c5 = document.createElement("td");
+
+        c1.innerHTML = "" + (i + 1);
+        c2.innerHTML = f.filename;
+        c3.innerHTML = f.newFilename;
+        c4.innerHTML = f.tags.join(", ") || "undefined";
+        c5.innerHTML = dayjs(f.createdAt).tz().format("YYYY-MM-DD HH:mm:ss");
+
+        row.appendChild(c1);
+        row.appendChild(c2);
+        row.appendChild(c3);
+        row.appendChild(c4);
+        row.appendChild(c5);
+        takeFilesBody.appendChild(row);
+      }
+    }
+
+    const importFiles = async (files: File[], offset: number) => {
+      const template = templateInput.value || "undefined";
+
+      const reversedTakes = session.takes.toReversed();
+
+      const convertedFiles: IFile[] = [];
+      for (const f of files) {
+        const filename = f.name;
+
+        const ext = f.name.match(/\.(.+)$/)?.[1];
+        if (!ext) {
+          throw new Error("Extension not found");
+        }
+        
+        try {
+          const createdAt = await getCreatedAtFromFile(f);
+          const adjustedCreatedAt = createdAt + offset;
+          const t = reversedTakes.find((take) => adjustedCreatedAt <= take.createdAt);
+          const tags = t?.tags || [];
+          
+          const newFilename = createFilename(template, tags, "." + ext);
+
+          convertedFiles.push({
+            originalCreatedAt: createdAt,
+            createdAt: adjustedCreatedAt,
+            filename,
+            newFilename,
+            file: f,
+            tags,
+          });
+        } catch(err) {
+          console.log(err);
+          throw new Error(`Could not read metadata: ${f.name}`);
+        }
+      }
+
+      const sortedFiles = convertedFiles.sort((a, b) => a.createdAt - b.createdAt);
+
+      return sortedFiles;
+    }
+
+    takeForm.addEventListener("submit", onTakeFormSubmit);
+    syncFileInput.addEventListener("change", onSyncFileChange);
+    syncDataInput.addEventListener("change", onSyncDataChange);
+    takeFilesInput.addEventListener("change", onImageFilesChange);
+    clearStateButton.addEventListener("click", clearSession);
+    downloadButton.addEventListener("click", onDownloadClick);
+    templateInput.addEventListener("input", onTemplateChange);
+
+    // init
+    document.addEventListener("DOMContentLoaded", () => {
+      startSyncTimer();
+      try {
+        const prevSession = getPrevSession();
+        importSession(prevSession);
+        // stopSyncTimer();
+      } catch(err) {
+        console.warn(err);
+      }
+    });
+
+  })();
+  
+</script>

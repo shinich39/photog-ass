@@ -1,0 +1,17 @@
+{
+  "name": "photog-ass",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^5.12.8",
+    "dayjs": "^1.11.13",
+    "exifreader": "^4.31.1",
+    "jszip": "^3.10.1"
+  }
+}
