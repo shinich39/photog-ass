@@ -117,21 +117,22 @@
     </p>
 
     <p>
-      e.g., If tags is "Party, Bob, John, Mike"<br />
-      tags[0]/tags[1]_tags[2]_tags[3] =&gt; Party/Bob_John_Mike.&lt;extension&gt;
+      e.g., If tags is "Party, Bob, John, Mike",<br />
+      tags[0]/tags[1]_tags[2]_tags[3] =&gt; Party/Bob_John_Mike (0).&lt;extension&gt;
     </p>
 
     <div>
       <input
         id="template-input"
-        style="width: 256px"
+        style="width: 256px;"
         type="text"
-        placeholder="Template here..."
+        placeholder="{0}/image_{index}.jpg"
+        value="{0}/image_{index}.jpg"
         />
     </div>
 
     <div id="template-result">
-      undefined
+      Party/image_0000.jpg
     </div>
 
 
@@ -314,18 +315,20 @@
     const createFilename = (
       template: string,
       tags: string[],
-      ext: string
+      index: number,
     ) => {
-      const newFilename = template.replace(/tags\[([0-9]+)\]/g, (_, str) => {
-        const n = parseInt(str);
-        if (isNaN(n) || !tags[n]) {
-          return "undefined";
-        } else {
-          return tags[n];
-        }
-      });
+      const newFilename = template
+        .replaceAll(/\{index\}/g, String(index).padStart(4, "0"))
+        .replace(/\{([0-9]+)\}/g, (_, str) => {
+          const n = parseInt(str);
+          if (isNaN(n) || !tags[n]) {
+            return "undefined";
+          } else {
+            return tags[n];
+          }
+        });
 
-      return newFilename + ext;
+      return newFilename;
     }
 
     const saveSession = () => {
@@ -428,7 +431,7 @@
 
     const onTemplateChange = async (e: Event) => {
       const str = templateInput.value;
-      const newFilename = createFilename(str, ["Party", "Bob", "John", "Mike"], ".jpg");
+      const newFilename = createFilename(str, ["Party", "Bob", "John", "Mike"], 0);
       templateResult.innerHTML = newFilename;
     }
 
@@ -552,26 +555,23 @@
 
     const importFiles = async (files: File[], offset: number) => {
       const template = templateInput.value || "undefined";
-
       const takes = session.takes;
-      // const takes = session.takes.toReversed();
 
       const convertedFiles: IFile[] = [];
       for (const f of files) {
         const filename = f.name;
 
-        const ext = f.name.match(/\.(.+)$/)?.[1];
-        if (!ext) {
-          throw new Error("Extension not found");
-        }
-        
         try {
           const createdAt = await getCreatedAtFromFile(f);
           const adjustedCreatedAt = createdAt + offset;
           const t = takes.find((take) => adjustedCreatedAt <= take.createdAt);
           const tags = t?.tags || [];
-          
-          const newFilename = createFilename(template, tags, "." + ext);
+
+          let index = 0,
+              newFilename = createFilename(template, tags, index++);
+          while(convertedFiles.some((item) => item.newFilename === newFilename)) {
+            newFilename = createFilename(template, tags, index++);
+          }
 
           convertedFiles.push({
             originalCreatedAt: createdAt,
