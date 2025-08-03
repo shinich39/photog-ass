@@ -6,7 +6,11 @@ This page is support you are photography.
 
 ### Usage
 
-- [RUNNNNN](https://shinich39.github.io/photog-ass/)
+
+<img src="/public/example.png" width="512" alt="example" />
+
+
+[RUNNNNN](https://shinich39.github.io/photog-ass/)
 
 ## Acknowledgements
 
