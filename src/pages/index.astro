@@ -553,7 +553,7 @@
     const importFiles = async (files: File[], offset: number) => {
       const template = templateInput.value || "undefined";
 
-      const reversedTakes = session.takes.toReversed();
+      // const reversedTakes = session.takes.toReversed();
 
       const convertedFiles: IFile[] = [];
       for (const f of files) {
@@ -567,7 +567,7 @@
         try {
           const createdAt = await getCreatedAtFromFile(f);
           const adjustedCreatedAt = createdAt + offset;
-          const t = reversedTakes.find((take) => adjustedCreatedAt <= take.createdAt);
+          const t = session.takes.find((take) => adjustedCreatedAt <= take.createdAt);
           const tags = t?.tags || [];
           
           const newFilename = createFilename(template, tags, "." + ext);
