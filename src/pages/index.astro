@@ -5,7 +5,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="generator" content={Astro.generator} />
     <title>photog-ass</title>
@@ -64,6 +64,24 @@
       </thead>
       <tbody id="take-body"></tbody>
     </table>
+
+    <br />
+    <br />
+    
+    <p>
+      (Optional) You can continue on another device.
+      <br />
+      e.g., Mobile =&gt; Desktop
+    </p>
+
+    <p>
+      <button id="export-button">Export session</button>
+    </p>
+
+    <p>
+      <input id="import-input" type="file" accept="application/json">
+      <button id="import-button">Import session</button>
+    </p>
 
 
     <br />
@@ -157,7 +175,10 @@
 
 
     <br />
+    <br />
 
+
+    <p>10. Download renamed files.</p>
 
     <div>
       <button id="download-button">Download</button>
@@ -170,7 +191,7 @@
     
 
     <p>
-      10. Clear current session for next session.
+      11. Clear current session for next session.
     </p>
 
     <p>
@@ -260,6 +281,9 @@
     const templateInput = document.getElementById("template-input") as HTMLInputElement;
     const templateResult = document.getElementById("template-result") as HTMLDivElement;
     const downloadButton = document.getElementById("download-button") as HTMLButtonElement;
+    const importInput = document.getElementById("import-input") as HTMLInputElement;
+    const importButton = document.getElementById("import-button") as HTMLButtonElement;
+    const exportButton = document.getElementById("export-button") as HTMLButtonElement;
     const progress = document.getElementById("progress") as HTMLSpanElement;
 
     let syncTimer: any;
@@ -465,6 +489,42 @@
       URL.revokeObjectURL(url);
     }
 
+    const onExportClick = async (e: Event) => {
+      const json = JSON.stringify(session);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "photog-ass-export.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const onImportClick = async (e: Event) => {
+      const file = importInput.files?.[0];
+
+      if (!file) {
+        alert("Choose exported json file.");
+        return;
+      }
+
+      const fr = new FileReader();
+
+      fr.onload = () => {
+        try {
+          const text = fr.result as string;
+          const json = JSON.parse(text) as ISession;
+
+          importSession(json);
+          saveSession();
+        } catch(err) {
+          alert(`File is not supported: ${file.name}`);
+        }
+      }
+
+      fr.readAsText(file)
+    }
+
     const renderAll = () => {
       renderTakes();
       renderSyncFile();
@@ -593,6 +653,8 @@
     takeFilesInput.addEventListener("change", onImageFilesChange);
     clearStateButton.addEventListener("click", clearSession);
     downloadButton.addEventListener("click", onDownloadClick);
+    exportButton.addEventListener("click", onExportClick);
+    importButton.addEventListener("click", onImportClick);
     templateInput.addEventListener("input", onTemplateChange);
 
     // init
