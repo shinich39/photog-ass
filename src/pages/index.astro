@@ -21,10 +21,6 @@
     </p>
 
     <p>
-      I hope this page helps you become more productive.
-    </p>
-
-    <p>
       <a href="https://github.com/shinich39/photog-ass">Github</a> |
       <a href="mailto:shinich39@gmail.com">shinich39@gmail.com</a>
     </p>
@@ -44,7 +40,10 @@
 
     <p>2. Take pictures you want to group together.</p>
     
-    <p>3. Enter tags for the pictures and click the Set button.</p>
+    <p>
+      3. Enter tags for the pictures and click the Set button.
+      A group will be created with the files you just taken pictures.
+    </p>
 
     <p>4. Repeat 2 to 3.</p>
 
@@ -116,25 +115,21 @@
       8. Edit filename template.
     </p>
 
-    <p>
-      e.g., If tags is "Party, Bob, John, Mike",<br />
-      {"{0}"}/{"{1}"}_{"{2}"}_{"{3}"}_{"{index}"}.jpg =&gt; Party/Bob_John_Mike_0000.jpg
-    </p>
-
     <div>
       <input
         id="template-input"
         style="width: 256px;"
         type="text"
-        placeholder="{0}/image_{index}.jpg"
-        value="{0}/image_{index}.jpg"
+        value="{0}/{1}_{2}_{3}_{index}.jpg"
+        placeholder="Party/Bob_John_Mike_0000.jpg"
         />
     </div>
+
+    <p>e.g., If tags is "Party, Bob, John, Mike",</p>
 
     <div id="template-result">
       Party/image_0000.jpg
     </div>
-
 
     <br />
     <br />
