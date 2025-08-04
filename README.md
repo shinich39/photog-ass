@@ -5,16 +5,14 @@ This page is support you are photography.
 
 <img src="/public/example.png" width="512" alt="example" />
 
+
+
 ## Features
 
-- Create a group with you just taken pictures.
-- Move image files to group directory.
+- Group all image files and move them into group directory.
 - Rename image files using tags.
 
 ## Getting Started
-
-### Usage
-
 
 [RUNNNNN](https://shinich39.github.io/photog-ass/)
 
